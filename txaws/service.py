@@ -45,6 +45,8 @@ class AWSServiceEndpoint(object):
     """
 
     def __init__(self, uri="", method="GET", ssl_hostname_verification=True):
+        print("init")
+        print(uri)
         self.host = ""
         self.port = None
         self.path = "/"

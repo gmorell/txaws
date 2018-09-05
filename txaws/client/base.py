@@ -1,8 +1,7 @@
 # Licenced under the txaws licence available at /LICENSE in the txaws source.
 
 import os
-import urlparse
-from urllib import quote
+from urllib.parse import quote, urlparse
 from datetime import datetime
 from io import BytesIO
 
@@ -12,7 +11,7 @@ except ImportError:
     from xml.parsers.expat import ExpatError as ParseError
 
 import warnings
-from StringIO import StringIO
+from io import StringIO
 
 import attr
 from attr import validators
@@ -54,6 +53,7 @@ def error_wrapper(error, errorClass):
     In the event that an error is not a Twisted web error nor an EC2 one, the
     original exception is raised.
     """
+    print(error)
     http_status = 0
     if error.check(TwistedWebError):
         xml_payload = error.value.response
@@ -179,8 +179,8 @@ class _QueryArgument(object):
     """
     Representation of a single URL query argument, eg I{foo=bar}.
     """
-    name = attr.ib(validator=validators.instance_of(unicode))
-    value = attr.ib(default=None, validator=validators.optional(validators.instance_of(unicode)))
+    name = attr.ib(validator=validators.instance_of(str))
+    value = attr.ib(default=None, validator=validators.optional(validators.instance_of(str)))
 
     def url_encode(self):
         def q(t):
@@ -242,10 +242,10 @@ class _URLContext(object):
     L{url_context} is the public constructor to hide the type and
     prevent subclassing.
     """
-    scheme = attr.ib(validator=validators.instance_of(unicode))
-    host = attr.ib(validator=validators.instance_of(unicode))
+    scheme = attr.ib(validator=validators.instance_of(str))
+    host = attr.ib(validator=validators.instance_of(str))
     port = attr.ib(validator=validators.optional(validators.instance_of(int)))
-    path = attr.ib(validator=_list_of(validators.instance_of(unicode)))
+    path = attr.ib(validator=_list_of(validators.instance_of(str)))
     query = attr.ib(
         default=attr.Factory(list),
         convert=_tuples_to_queryarg,
@@ -266,7 +266,7 @@ class _URLContext(object):
         @rtype: L{bytes}
         """
         return b"/" + b"/".join(
-            quote(segment.encode("utf-8"), safe=b"") for segment in self.path
+            quote(segment.encode("utf-8"), safe=b"").encode('utf-8') for segment in self.path
         )
 
 
@@ -284,16 +284,20 @@ class _URLContext(object):
         @rtype: L{bytes}
         """
         params = dict(
-            scheme=self.scheme.encode("ascii"),
-            host=self.get_encoded_host(),
-            path=self.get_encoded_path(),
-            query=b"",
+            scheme=self.scheme,
+            host=self.host,
+            path=self.get_encoded_path().decode(),
+            query="",
         )
+        print(params)
         query = self.get_encoded_query()
         if query:
             params[b"query"] = b"?" + query
+
         if self.port is None:
-            return b"%(scheme)s://%(host)s%(path)s%(query)s" % params
+            x = "%(scheme)s://%(host)s%(path)s%(query)s" % params
+            print(x)
+            return x
         params["port"] = self.port
         return b"%(scheme)s://%(host)s:%(port)d%(path)s%(query)s" % params
 
@@ -357,7 +361,7 @@ class RequestDetails(object):
         unprotected from tampering by a signature).
     @ivar content_sha256: L{unicode}
     """
-    region = attr.ib(validator=validators.instance_of(bytes))
+    region = attr.ib(validator=validators.instance_of(str))
     service = attr.ib(validator=validators.instance_of(bytes))
     method = attr.ib(validator=validators.instance_of(bytes))
     url_context = attr.ib()
@@ -381,7 +385,7 @@ class RequestDetails(object):
     )
     content_sha256 = attr.ib(
         default=None,
-        validator=validators.optional(validators.instance_of(unicode)),
+        validator=validators.optional(validators.instance_of(str)),
     )
 
 
@@ -480,9 +484,9 @@ class _Query(object):
         headers = {
             "x-amz-date": _auth_v4.makeAMZDate(instant),
         }
-        for key, value in metadata.iteritems():
+        for key, value in metadata.items():
             headers["x-amz-meta-" + key] = value
-        for key, value in amz_headers.iteritems():
+        for key, value in amz_headers.items():
             headers["x-amz-" + key] = value
         if content_sha256 is None:
             content_sha256 = b"UNSIGNED-PAYLOAD"
@@ -534,7 +538,7 @@ class _Query(object):
             self._details.metadata, self._details.amz_headers,
             self._details.content_sha256,
         )
-        for k, v in extra_headers.iteritems():
+        for k, v in extra_headers.items():
             headers.setRawHeaders(k, [v])
 
         if not headers.hasHeader(u"host"):
@@ -571,10 +575,13 @@ class _Query(object):
         if body_producer is None:
             # Work around for https://twistedmatrix.com/trac/ticket/8984
             body_producer = FileBodyProducer(BytesIO(b""))
-
+        print(method)
+        print(url)
+        print(headers)
+        print(body_producer)
         d = agent.request(
             method,
-            url,
+            url.encode('utf-8'),
             headers,
             body_producer,
         )

@@ -3,7 +3,7 @@
 
 """Credentials for accessing AWS services."""
 
-import ConfigParser
+from configparser import ConfigParser
 import os
 
 import attr

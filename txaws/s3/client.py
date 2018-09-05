@@ -30,7 +30,7 @@ from twisted.internet import task
 import hashlib
 from hashlib import sha256
 
-from urllib import urlencode, unquote
+from urllib.parse import urlencode, unquote
 from dateutil.parser import parse as parseTime
 
 from txaws.client.base import (
@@ -107,12 +107,12 @@ class S3Client(BaseClient):
         # (included in the signature) more than 15 minutes in the past
         # are rejected. :/
         if body is not None:
-            content_sha256 = sha256(body).hexdigest().decode("ascii")
+            content_sha256 = sha256(body).hexdigest()
             body_producer = FileBodyProducer(BytesIO(body), cooperator=self._cooperator)
         elif body_producer is None:
             # Just as important is to include the empty content hash
             # for all no-body requests.
-            content_sha256 = sha256(b"").hexdigest().decode("ascii")
+            content_sha256 = sha256(b"").hexdigest()
         else:
             # Tell AWS we're not trying to sign the payload.
             content_sha256 = None
@@ -153,7 +153,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_list_buckets)
         return d
 
-    def _parse_list_buckets(self, (response, xml_bytes)):
+    def _parse_list_buckets(self, response, xml_bytes):
         """
         Parse XML bucket list response.
         """
@@ -236,7 +236,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_get_bucket)
         return d
 
-    def _parse_get_bucket(self, (response, xml_bytes)):
+    def _parse_get_bucket(self, response, xml_bytes):
         root = XML(xml_bytes)
         name = root.findtext("Name")
         prefix = root.findtext("Prefix")
@@ -281,7 +281,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_bucket_location)
         return d
 
-    def _parse_bucket_location(self, (response, xml_bytes)):
+    def _parse_bucket_location(self, response, xml_bytes):
         """Parse a C{LocationConstraint} XML document."""
         root = XML(xml_bytes)
         return root.text or ""
@@ -302,7 +302,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_lifecycle_config)
         return d
 
-    def _parse_lifecycle_config(self, (response, xml_bytes)):
+    def _parse_lifecycle_config(self, response, xml_bytes):
         """Parse a C{LifecycleConfiguration} XML document."""
         root = XML(xml_bytes)
         rules = []
@@ -333,7 +333,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_website_config)
         return d
 
-    def _parse_website_config(self, (response, xml_bytes)):
+    def _parse_website_config(self, response, xml_bytes):
         """Parse a C{WebsiteConfiguration} XML document."""
         root = XML(xml_bytes)
         index_suffix = root.findtext("IndexDocument/Suffix")
@@ -357,7 +357,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_notification_config)
         return d
 
-    def _parse_notification_config(self, (response, xml_bytes)):
+    def _parse_notification_config(self, response, xml_bytes):
         """Parse a C{NotificationConfiguration} XML document."""
         root = XML(xml_bytes)
         topic = root.findtext("TopicConfiguration/Topic")
@@ -380,7 +380,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_versioning_config)
         return d
 
-    def _parse_versioning_config(self, (response, xml_bytes)):
+    def _parse_versioning_config(self, response, xml_bytes):
         """Parse a C{VersioningConfiguration} XML document."""
         root = XML(xml_bytes)
         mfa_delete = root.findtext("MfaDelete")
@@ -414,7 +414,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_acl)
         return d
 
-    def _parse_acl(self, (response, xml_bytes)):
+    def _parse_acl(self, response, xml_bytes):
         """
         Parse an C{AccessControlPolicy} XML document and convert it into an
         L{AccessControlPolicy} instance.
@@ -502,7 +502,7 @@ class S3Client(BaseClient):
             url_context=self._url_context(bucket=bucket, object_name=object_name),
         )
         d = self._submit(self._query_factory(details))
-        d.addCallback(lambda (response, body): _to_dict(response.responseHeaders))
+        d.addCallback(lambda response, body: _to_dict(response.responseHeaders))
         return d
 
     def delete_object(self, bucket, object_name):
@@ -579,7 +579,7 @@ class S3Client(BaseClient):
         d.addCallback(self._parse_get_request_payment)
         return d
 
-    def _parse_get_request_payment(self, (response, xml_bytes)):
+    def _parse_get_request_payment(self, response, xml_bytes):
         """
         Parse a C{RequestPaymentConfiguration} XML document and extract the
         payer.
@@ -608,7 +608,7 @@ class S3Client(BaseClient):
         )
         d = self._submit(self._query_factory(details))
         d.addCallback(
-            lambda (response, body): MultipartInitiationResponse.from_xml(body)
+            lambda response, body: MultipartInitiationResponse.from_xml(body)
         )
         return d
 
@@ -639,7 +639,7 @@ class S3Client(BaseClient):
             body=data,
         )
         d = self._submit(self._query_factory(details))
-        d.addCallback(lambda (response, data): _to_dict(response.responseHeaders))
+        d.addCallback(lambda response, data: _to_dict(response.responseHeaders))
         return d
 
     def complete_multipart_upload(self, bucket, object_name, upload_id,
@@ -670,7 +670,7 @@ class S3Client(BaseClient):
         d = self._submit(self._query_factory(details))
         # TODO - handle error responses
         d.addCallback(
-            lambda (response, body): MultipartCompletionResponse.from_xml(body)
+            lambda response, body: MultipartCompletionResponse.from_xml(body)
         )
         return d
 
@@ -879,8 +879,8 @@ def s3_url_context(service_endpoint, bucket=None, object_name=None):
             else:
                 path.append(u"")
     return _S3URLContext(
-        scheme=service_endpoint.scheme.decode("utf-8"),
-        host=service_endpoint.get_host().decode("utf-8"),
+        scheme=service_endpoint.scheme,
+        host=service_endpoint.host,
         port=service_endpoint.port,
         path=path,
         query=query,
